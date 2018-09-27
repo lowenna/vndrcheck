@@ -12,6 +12,11 @@ While it's hard-coded to work against 'container' related repos, there's no reas
 it couldn't be used against other top-level repos with a minor change to `externalRepos`
 in main.go.
 
+Limitations:
+
+- It doesn't work if any vendored repos are 'aliased'
+- It skips repos that are not under github.com
+
 To install: `go get -u github.com/jhowardmsft/vndrcheck`
 
 Here is an example (9/27/2018) run against docker/docker, containerd/cri and containerd/containerd. Note that the top-level repos are hard-coded in this code.
