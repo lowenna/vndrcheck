@@ -2,7 +2,11 @@
 Vendor version checker. It scans the entire dependency chain for all vendored
 repos, and then repos that each vendored repo imports, continuing to the bottom
 of the chain. It looks to see where repos have been vendored by multiple projects,
-shows where there are discrepencies.
+shows where there are discrepencies. It is multi-threaded to make the lookups as
+fast as possible.
+
+Note this is very much a "v0.1" tool, just enough to get the job done. It's far
+from perfect, so PRs are welcomed to improve it.
 
 To install: `go get -u github.com/jhowardmsft/vndrcheck`
 
