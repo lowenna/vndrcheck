@@ -4,7 +4,7 @@ repos, and then repos that each vendored repo imports, continuing to the bottom
 of the chain. It looks to see where repos have been vendored by multiple projects,
 shows where there are discrepencies.
 
-To install: `go get -u github.com/jhowardmsft/msvndr`
+To install: `go get -u github.com/jhowardmsft/vndrcheck`
 
 Here is an example (9/27/2018) run against docker/docker, containerd/cri and containerd/containerd. Note that the top-level repos are hard-coded in this code.
 
