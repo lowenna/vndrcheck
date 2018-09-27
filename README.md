@@ -1,4 +1,4 @@
-# msvndr
+# vndrcheck
 Vendor version checker. It scans the entire dependency chain for all vendored
 repos, and then repos that each vendored repo imports, continuing to the bottom
 of the chain. It looks to see where repos have been vendored by multiple projects,
