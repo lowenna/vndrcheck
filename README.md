@@ -1,11 +1,12 @@
 # msvndr
-Vendor version checker
+Vendor version checker. It scans the entire dependency chain for all vendored
+repos, and then repos that each vendored repo imports, continuing to the bottom
+of the chain. It looks to see where repos have been vendored by multiple projects,
+shows where there are discrepencies.
 
-To install:
+To install: `go get -u github.com/jhowardmsft/msvndr`
 
-go get -u github.com/jhowardmsft/msvndr
-
-This is an example (9/27/2018) run against docker/docker, containerd/cri and containerd/containerd.
+Here is an example (9/27/2018) run against docker/docker, containerd/cri and containerd/containerd. Note that the top-level repos are hard-coded in this code.
 
 ```
 Analysing vendor.conf dependency chain:
