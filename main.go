@@ -45,9 +45,9 @@ var (
 	// search for all vendoring. containerd/cri and containerd/containerd are
 	// good ones, as is moby/moby.
 	externalRepos = []string{
-		//	"moby/moby",
+		"moby/moby",
 		"containerd/cri",
-		//"containerd/containerd",
+		"containerd/containerd",
 		//"containerd/continuity", // easier for testing...
 	}
 
@@ -56,9 +56,10 @@ var (
 		"boltdb/bolt",
 	}
 
-	allExternalRepos map[string]*externalRepoInfo
-	warnings         int
-	count            int
+	allExternalRepos   map[string]*externalRepoInfo
+	warnings           int
+	count              int
+	mismatchingImports int
 )
 
 func main() {
@@ -86,9 +87,30 @@ func main() {
 	}
 
 	fmt.Printf("Scanned %d repo(s) under github.com.\n", len(allExternalRepos))
-	if warnings > 0 {
-		fmt.Printf("%d warning(s) were found.\n", warnings)
+
+	fmt.Printf("\nAnalysing the results:\n")
+	for importedRepo, eri := range allExternalRepos {
+		if len(eri.commits) > 1 {
+			warnings++
+			mismatchingImports++
+			fmt.Printf("\n\nWARN: %s has %d versions imported\n", importedRepo, len(eri.commits))
+			for _, importedBy := range eri.commits {
+				fmt.Printf("\t%s by:\n", importedBy.vendorVersion)
+				for _, usingRepo := range importedBy.usingRepos {
+					fmt.Printf("\t\t%s\n", usingRepo)
+				}
+			}
+		}
 	}
+
+	if warnings > 0 {
+		fmt.Printf("\n%d warning(s) were found.\n", warnings)
+	}
+
+	if mismatchingImports > 0 {
+		fmt.Printf("\n%d repo(s) are imported at different revisions.\n", mismatchingImports)
+	}
+
 }
 
 // getJson gets json from a URL and decodes it
