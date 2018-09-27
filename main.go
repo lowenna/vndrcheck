@@ -16,6 +16,7 @@ import (
 	"time"
 )
 
+// For getting repo latest tag from github API
 type githubRepo struct {
 	Tag string `json:"tag_name,omitempty"`
 }
@@ -25,6 +26,7 @@ type importRepo struct {
 	version  map[string]string
 }
 
+// The Microsoft repos of particular interest
 var microsoftRepos = []string{
 	"Microsoft/opengcs",
 	"Microsoft/hcsshim",
@@ -33,7 +35,7 @@ var microsoftRepos = []string{
 
 // This is a list of top-level repos which we use as starting points in our
 // search for all vendoring. containerd/cri and containerd/containerd are
-// good ones.
+// good ones, as is moby/moby.
 var externalRepos = []string{
 	//	"moby/moby",
 	"containerd/cri",
@@ -52,6 +54,8 @@ type externalRepoInfo struct {
 
 var allExternalRepos map[string]*externalRepoInfo
 
+var warnings int
+
 func main() {
 
 	allExternalRepos = make(map[string]*externalRepoInfo)
@@ -60,12 +64,12 @@ func main() {
 	fmt.Printf("Finding latest releases:\n\n")
 	msRepos := make(map[string]string)
 	for _, repo := range microsoftRepos {
-		fmt.Printf("%20s : ", repo)
+		fmt.Printf("- %-23s : ", repo)
 		ghr := githubRepo{}
 		if err := getJson(fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", repo), &ghr); err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("%s\n", ghr.Tag)
+		fmt.Printf("xxxx%s\n", ghr.Tag)
 		msRepos[repo] = ghr.Tag
 	}
 
@@ -76,10 +80,13 @@ func main() {
 		fmt.Println()
 	}
 
-	fmt.Println("We found:")
-	for _, foo := range allExternalRepos {
-		fmt.Println("...", foo)
+	fmt.Printf("Scanned %d repo(s) under github.com.\n", len(allExternalRepos))
+	if warnings > 0 {
+		fmt.Printf("%d warning(s) were found.\n", warnings)
 	}
+	//for _, foo := range allExternalRepos {
+	//fmt.Println("...", foo)
+	//}
 	//fmt.Printf("%+v", allExternalRepos)
 
 }
@@ -89,7 +96,6 @@ func getJson(url string, target interface{}) error {
 	c := &http.Client{Timeout: 10 * time.Second}
 	r, err := c.Get(url)
 	if err != nil {
-		fmt.Println("Oops:", url)
 		return err
 	}
 	defer r.Body.Close()
@@ -119,23 +125,28 @@ func getvndrconf(repo string) (string, error) {
 // seedAllExternalReposFrom seeds our global `allExternalRepos` structure.
 // It works recursively until all unique instances of mentioned repos have
 // been found.
+var count int
+
 func seedAllExternalReposFrom(repo, atCommit, parentRepo string) {
-	fmt.Printf(".")
+	//fmt.Printf(".")
 
-	// Add this repo if it's not already present.
-	if _, ok := allExternalRepos[repo]; !ok {
-		eri := &externalRepoInfo{
-			commits: make(map[string]string),
-		}
-		eri.commits[repo] = atCommit
-		allExternalRepos[repo] = eri
+	count++
+	fmt.Printf("%4d: %-30.30s  %-16.16s  %s\n", count, repo, atCommit, parentRepo)
 
-		for _, bad := range badRepos {
-			if bad == repo {
-				fmt.Printf("\n\nWARN: %q vendors known bad repo %q at %q\n\n", parentRepo, bad, atCommit)
-			}
-		}
+	if _, ok := allExternalRepos[repo]; ok {
+		// An entry is present in allExternalRepos. Does it match an existing commit?
+		// TODO HERE JJH
+
+		// Stop recursing further
+		return
 	}
+
+	// Add this repo at the commit.
+	eri := &externalRepoInfo{
+		commits: make(map[string]string),
+	}
+	eri.commits[repo] = atCommit
+	allExternalRepos[repo] = eri
 
 	// Get the repo's vendor.conf
 	vc, err := getvndrconf(repo)
@@ -170,12 +181,14 @@ func seedAllExternalReposFrom(repo, atCommit, parentRepo string) {
 		vendoredRepo := strings.TrimPrefix(lineSplit[0], "github.com/")
 		vendoredAt := lineSplit[1]
 
-		// Look to see if this line in the repos vendor.conf is already present
-		// in our structure holding all the external repos we know about.
-		if _, ok := allExternalRepos[vendoredRepo]; !ok {
-			// As we just added a repo to the list of known, recurse into that
-			// so we get the full tree built.
-			seedAllExternalReposFrom(vendoredRepo, vendoredAt, repo)
+		for _, bad := range badRepos {
+			if bad == vendoredRepo {
+				warnings++
+				fmt.Printf("\n\nWARN: %q vendors known bad repo %q at %q\n\n", repo, bad, vendoredAt)
+			}
 		}
+
+		// Go recusive
+		seedAllExternalReposFrom(vendoredRepo, vendoredAt, repo)
 	}
 }
