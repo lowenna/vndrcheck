@@ -48,12 +48,7 @@ var badRepos = []string{
 	"boltdb/bolt",
 }
 
-type externalRepoInfo struct {
-	commits map[string]string
-}
-
 var allExternalRepos map[string]*externalRepoInfo
-
 var warnings int
 
 func main() {
@@ -69,7 +64,7 @@ func main() {
 		if err := getJson(fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", repo), &ghr); err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("xxxx%s\n", ghr.Tag)
+		fmt.Printf("%s\n", ghr.Tag)
 		msRepos[repo] = ghr.Tag
 	}
 
@@ -127,15 +122,26 @@ func getvndrconf(repo string) (string, error) {
 // been found.
 var count int
 
+type version struct {
+	usingRepos    []string
+	vendorVersion string
+}
+
+type externalRepoInfo struct {
+	commits map[string][]version
+	//commits map[string]string
+}
+
 func seedAllExternalReposFrom(repo, atCommit, parentRepo string) {
 	//fmt.Printf(".")
 
 	count++
 	fmt.Printf("%4d: %-30.30s  %-16.16s  %s\n", count, repo, atCommit, parentRepo)
 
-	if _, ok := allExternalRepos[repo]; ok {
+	if aerItem, ok := allExternalRepos[repo]; ok {
 		// An entry is present in allExternalRepos. Does it match an existing commit?
-		// TODO HERE JJH
+
+		fmt.Printf("%+v", aerItem)
 
 		// Stop recursing further
 		return
@@ -143,9 +149,13 @@ func seedAllExternalReposFrom(repo, atCommit, parentRepo string) {
 
 	// Add this repo at the commit.
 	eri := &externalRepoInfo{
-		commits: make(map[string]string),
+		commits: make(map[string][]version),
 	}
-	eri.commits[repo] = atCommit
+	v := version{
+		usingRepos:    []string{parentRepo},
+		vendorVersion: atCommit,
+	}
+	eri.commits[repo] = []version{v}
 	allExternalRepos[repo] = eri
 
 	// Get the repo's vendor.conf
@@ -188,7 +198,7 @@ func seedAllExternalReposFrom(repo, atCommit, parentRepo string) {
 			}
 		}
 
-		// Go recusive
+		// Go recusive  // TODO - could be multithreaded here...
 		seedAllExternalReposFrom(vendoredRepo, vendoredAt, repo)
 	}
 }
