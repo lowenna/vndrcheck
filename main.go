@@ -21,35 +21,45 @@ type githubRepo struct {
 	Tag string `json:"tag_name,omitempty"`
 }
 
-type importRepo struct {
-	repoName string
-	version  map[string]string
+// The versions of a repo being used and who is using it.
+type version struct {
+	usingRepos    []string
+	vendorVersion string
 }
 
-// The Microsoft repos of particular interest
-var microsoftRepos = []string{
-	"Microsoft/opengcs",
-	"Microsoft/hcsshim",
-	"Microsoft/go-winio",
+// Information about a repo being used.
+type externalRepoInfo struct {
+	commits map[string]*version
 }
 
-// This is a list of top-level repos which we use as starting points in our
-// search for all vendoring. containerd/cri and containerd/containerd are
-// good ones, as is moby/moby.
-var externalRepos = []string{
-	//	"moby/moby",
-	"containerd/cri",
-	//"containerd/containerd",
-	//"containerd/continuity", // easier for testing...
-}
+var (
 
-// This is a list of known bad repos - ones which shouldn't be present
-var badRepos = []string{
-	"boltdb/bolt",
-}
+	// The Microsoft repos of particular interest
+	microsoftRepos = []string{
+		"Microsoft/opengcs",
+		"Microsoft/hcsshim",
+		"Microsoft/go-winio",
+	}
 
-var allExternalRepos map[string]*externalRepoInfo
-var warnings int
+	// This is a list of top-level repos which we use as starting points in our
+	// search for all vendoring. containerd/cri and containerd/containerd are
+	// good ones, as is moby/moby.
+	externalRepos = []string{
+		//	"moby/moby",
+		"containerd/cri",
+		//"containerd/containerd",
+		//"containerd/continuity", // easier for testing...
+	}
+
+	// This is a list of known bad repos - ones which shouldn't be present
+	badRepos = []string{
+		"boltdb/bolt",
+	}
+
+	allExternalRepos map[string]*externalRepoInfo
+	warnings         int
+	count            int
+)
 
 func main() {
 
@@ -79,11 +89,6 @@ func main() {
 	if warnings > 0 {
 		fmt.Printf("%d warning(s) were found.\n", warnings)
 	}
-	//for _, foo := range allExternalRepos {
-	//fmt.Println("...", foo)
-	//}
-	//fmt.Printf("%+v", allExternalRepos)
-
 }
 
 // getJson gets json from a URL and decodes it
@@ -120,28 +125,38 @@ func getvndrconf(repo string) (string, error) {
 // seedAllExternalReposFrom seeds our global `allExternalRepos` structure.
 // It works recursively until all unique instances of mentioned repos have
 // been found.
-var count int
-
-type version struct {
-	usingRepos    []string
-	vendorVersion string
-}
-
-type externalRepoInfo struct {
-	commits map[string][]version
-	//commits map[string]string
-}
-
 func seedAllExternalReposFrom(repo, atCommit, parentRepo string) {
 	//fmt.Printf(".")
 
 	count++
 	fmt.Printf("%4d: %-30.30s  %-16.16s  %s\n", count, repo, atCommit, parentRepo)
 
-	if aerItem, ok := allExternalRepos[repo]; ok {
+	if eriItemForRepo, ok := allExternalRepos[repo]; ok {
 		// An entry is present in allExternalRepos. Does it match an existing commit?
+		//fmt.Printf("eriItemForRepo: %+v\n", eriItemForRepo)
 
-		fmt.Printf("%+v", aerItem)
+		for _, knownVersion := range eriItemForRepo.commits {
+			//fmt.Printf("knownversion: %+v\n", knownVersion)
+			if knownVersion.vendorVersion == atCommit {
+
+				// Is this repo already in usingRepos?
+				for _, usingRepo := range knownVersion.usingRepos {
+					if usingRepo == parentRepo {
+						// Nothing to do as already present. Stop recursing
+						return
+					}
+				}
+				// So we need to append that to the list of repos using this version
+				knownVersion.usingRepos = append(knownVersion.usingRepos, parentRepo)
+				return // Done - stop recursing further
+			}
+		}
+
+		// So we have another version of this same repo in use. Add another version.
+		eriItemForRepo.commits[atCommit] = &version{
+			vendorVersion: atCommit,
+			usingRepos:    []string{parentRepo},
+		}
 
 		// Stop recursing further
 		return
@@ -149,13 +164,12 @@ func seedAllExternalReposFrom(repo, atCommit, parentRepo string) {
 
 	// Add this repo at the commit.
 	eri := &externalRepoInfo{
-		commits: make(map[string][]version),
+		commits: make(map[string]*version),
 	}
-	v := version{
+	eri.commits[repo] = &version{
 		usingRepos:    []string{parentRepo},
 		vendorVersion: atCommit,
 	}
-	eri.commits[repo] = []version{v}
 	allExternalRepos[repo] = eri
 
 	// Get the repo's vendor.conf
