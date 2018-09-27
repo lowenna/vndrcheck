@@ -8,6 +8,10 @@ fast as possible.
 Note this is very much a "v0.1" tool, just enough to get the job done. It's far
 from perfect, so PRs are welcomed to improve it.
 
+While it's hard-coded to work against 'container' related repos, there's no reason
+it couldn't be used against other top-level repos with a minor change to `externalRepos`
+in main.go.
+
 To install: `go get -u github.com/jhowardmsft/vndrcheck`
 
 Here is an example (9/27/2018) run against docker/docker, containerd/cri and containerd/containerd. Note that the top-level repos are hard-coded in this code.
