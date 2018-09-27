@@ -1,5 +1,5 @@
-// Simple vendor checker for MS repos across container projects.
-// It also looks for inconsistencies in vendoring across projects.
+// Simple vendor checker across container projects.
+// It looks for inconsistencies in vendoring across projects.
 // Currently it is limited to only look through github.com hosted projects.
 //
 // By John Howard, September 2018. @jhowardmsft
